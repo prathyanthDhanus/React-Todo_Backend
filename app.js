@@ -24,10 +24,6 @@ app.use("/",userRoute);
 
 
 
-
-
-
-
 //mongodb connection setup
 mongoose.connect(url)
     .then(() => console.log("mongodb atlas connected"))
