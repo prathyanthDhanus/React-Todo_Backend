@@ -1,6 +1,6 @@
 const todo = require("../model/todoSchema");
 const user = require("../model/userSchema");
-const bcrypt = require('bcrypt')
+const bcrypt = require('bcrypt');
 
 //------------------user register section------------------
 
@@ -106,7 +106,7 @@ const getTask = async (req, res) => {
   });
 };
 
-//-------------------------------get task by id-------------------
+//-----------------------------get task by id--------------------
 
 const getTaskbyId = async (req, res) => {
   // Extract the task ID from the request parameters
