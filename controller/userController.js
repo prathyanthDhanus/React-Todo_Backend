@@ -1,13 +1,12 @@
 const todo = require("../model/todoSchema");
 const user = require("../model/userSchema");
-const bcrypt = require('bcrypt');
+const bcrypt = require("bcrypt");
 
 //------------------user register section------------------
 
 const userRegister = async (req, res) => {
- 
   const { userName, email, password } = req.body;
-  
+
   const identifyUser = await user.findOne({ email: email });
 
   if (identifyUser) {
@@ -39,11 +38,11 @@ const userRegister = async (req, res) => {
 
 const userLogin = async (req, res) => {
   const { email, password } = req.body;
-console.log(req.body);
+  console.log(req.body);
   const identifyUser = await user.findOne({ email: email });
   console.log(identifyUser);
-   // Check if the user exists
-   if (!identifyUser) {
+  // Check if the user exists
+  if (!identifyUser) {
     return res.status(404).json({
       status: "failure",
       message: "User not found",
@@ -71,17 +70,47 @@ console.log(req.body);
 
 const addTask = async (req, res) => {
   // Destructure title and description from the request body
-  const { title, description } = req.body;
+  const { title, description, category, createdAt } = req.body;
+ 
+  const userId = req.params.id;
+
+  // Using findOne to find a document by userId
+  const findUser = await user.findOne({ _id: userId });
+  console.log("user",findUser);
+
+  // Check if user exists
+  if (!findUser) {
+    return res.status(404).json({ message: "User not found" });
+  }
+console.log("userid",findUser._id,category,createdAt,title);
+  // Use userId from the found user document
+  const findDetails = await todo.findOne({
+    userId: findUser._id,
+    createdAt: createdAt,
+    category: category,
+    title:title,
+  });
+  console.log("finddetails",findDetails);
+
+    if (findDetails) {
+      return res.status(403).json({ 
+        message: "Task already exists for given date and category." 
+      });
+    } 
 
   // Create a new instance of the 'todo' model with the provided title and description
   const newTodo = new todo({
+    userId: findUser._id, // Use the _id from the found user
+    category: category,
     title: title,
     description: description,
+    createdAt: createdAt, // Ensure the createdAt field is set in the correct format
   });
 
   await newTodo.save();
   res.status(201).json({ message: "Todo saved successfully" });
 };
+
 
 //--------------------get task--------------------------
 
@@ -118,7 +147,7 @@ const getTaskbyId = async (req, res) => {
   if (!findTask) {
     return res.json({
       status: "failure",
-      
+
       message: "No task is found",
     });
   }
@@ -176,4 +205,12 @@ const deleteTask = async (req, res) => {
   });
 };
 
-module.exports = { userRegister,userLogin,addTask, getTask, getTaskbyId, updateTask, deleteTask };
+module.exports = {
+  userRegister,
+  userLogin,
+  addTask,
+  getTask,
+  getTaskbyId,
+  updateTask,
+  deleteTask,
+};
