@@ -12,8 +12,10 @@ router
 
 .get("/get/todo/tasks/:id",tryCatch(todo.getTask))
 .get("/get/todo/tasks",tryCatch(todo.getTaskbyId))
+.get("/get/todo/category/:id",tryCatch(todo.getCategory))
 
 .put("/edit/todo/tasks/:id",tryCatch(todo.updateTask))
+.put("/edit/todo/category/:id",tryCatch(todo.updateCategoryName))
 
 .delete("/delete/todo/tasks/:id",tryCatch(todo.deleteTask))
 
