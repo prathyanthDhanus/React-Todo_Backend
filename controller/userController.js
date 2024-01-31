@@ -1,7 +1,7 @@
 const todo = require("../model/todoSchema");
 const user = require("../model/userSchema");
 const bcrypt = require("bcrypt");
-
+const categories = require('../model/categorySchema')
 //------------------user register section------------------
 
 const userRegister = async (req, res) => {
@@ -71,40 +71,42 @@ const userLogin = async (req, res) => {
 const addTask = async (req, res) => {
   // Destructure title and description from the request body
   const { title, description, category, createdAt } = req.body;
- 
   const userId = req.params.id;
 
-  // Using findOne to find a document by userId
-  const findUser = await user.findOne({ _id: userId });
-  console.log("user",findUser);
+  // Check if the category exists
+  let findCategory = await categories.findOne({ categories: category });
 
-  // Check if user exists
-  if (!findUser) {
-    return res.status(404).json({ message: "User not found" });
+  // If the category doesn't exist, create it
+  if (!findCategory) {
+    findCategory = await categories.create({
+      categories: category,
+      userId: userId,
+    });
   }
-console.log("userid",findUser._id,category,createdAt,title);
-  // Use userId from the found user document
-  const findDetails = await todo.findOne({
-    userId: findUser._id,
-    createdAt: createdAt,
-    category: category,
-    title:title,
-  });
-  console.log("finddetails",findDetails);
 
-    if (findDetails) {
-      return res.status(403).json({ 
-        message: "Task already exists for given date and category." 
-      });
-    } 
+  console.log("findCategory", findCategory);
+
+  // Check if the task already exists for the given date and category
+  const findDetails = await todo.findOne({
+    userId: userId,
+    createdAt: createdAt,
+    category: findCategory._id,  
+    title: title,
+  });
+
+  if (findDetails) {
+    return res.status(403).json({ 
+      message: "Task already exists for given date and category." 
+    });
+  }
 
   // Create a new instance of the 'todo' model with the provided title and description
   const newTodo = new todo({
-    userId: findUser._id, // Use the _id from the found user
-    category: category,
+    userId: userId,
+    category: findCategory._id,  
     title: title,
     description: description,
-    createdAt: createdAt, // Ensure the createdAt field is set in the correct format
+    createdAt: createdAt,
   });
 
   await newTodo.save();
@@ -115,23 +117,59 @@ console.log("userid",findUser._id,category,createdAt,title);
 //--------------------get task--------------------------
 
 const getTask = async (req, res) => {
-  // Retrieve all tasks from the 'todo' collection in the database
-  const data = await todo.find();
 
-  // if (data.length === 0) {
-  //   return res.json({
+  const userId = req.params.id;
+  const { month, year } = req.query;
+  console.log(req.query);
+
+  // Ensure that month and year are provided in the request
+  // if (!month || !year) {
+  //   return res.status(400).json({
   //     status: "failure",
-  //     message: "No task is found",
+  //     message: "Month and year are required parameters.",
   //   });
   // }
 
+  // Construct a date range for the specified month and year
+  // const startDate = new Date(`${year}-${month}-01T00:00:00Z`);
+  
+  const monthInt = parseInt(month, 10);
+
+  if (isNaN(monthInt) || monthInt < 1 || monthInt > 12) {
+    return res.status(400).json({
+      status: "failure",
+      message: "Invalid month provided.",
+    });
+  }
+  
+  const monthFormatted = monthInt.toString().padStart(2, '0');
+  const startDate = new Date(`${year}-${monthFormatted}-01T00:00:00Z`);
+  console.log("strt",startDate);
+  const endDate = new Date(
+    new Date(startDate).setMonth(startDate.getMonth() + 1)
+  );
+
+  console.log("end",endDate);
+  // Retrieve tasks for the particular user within the specified date range
+  const findTask = await todo.find({
+    userId: userId,
+    createdAt: {
+      $gte: startDate.toISOString(),
+      $lt: endDate.toISOString(),
+    },
+  }).populate("category");
+ if(findTask.length===0){
+  return res.status(404).json({
+    status: "failure",
+    message: "No task found",
+   
+  });
+ }
   // Send a success response with the list of tasks
   return res.status(200).json({
     status: "success",
-
     message: "List of Tasks",
-
-    data: data,
+    data: findTask,
   });
 };
 
@@ -139,15 +177,14 @@ const getTask = async (req, res) => {
 
 const getTaskbyId = async (req, res) => {
   // Extract the task ID from the request parameters
-  const id = req.params.id;
-
+  const {taskId} = req.query;
+  // console.log(userId);
   //find the task using the id
-  const findTask = await todo.findById({ _id: id });
-
+  const findTask = await todo.findById({_id:taskId}).populate("category");
+  console.log(findTask);
   if (!findTask) {
     return res.json({
       status: "failure",
-
       message: "No task is found",
     });
   }
@@ -164,10 +201,13 @@ const getTaskbyId = async (req, res) => {
 //----------------------update-------------------------
 
 const updateTask = async (req, res) => {
-  const id = req.params.id;
+  const taskId = req.params.id;
+  console.log("id",typeof(id));
   const data = req.body;
-  const findTask = await todo.findByIdAndUpdate(id, data, { new: true });
-
+  console.log("data",data);
+  const findTask = await todo.findByIdAndUpdate(taskId, data, { new: true });
+  // const findTask = await todo.findById(id);
+  console.log("findtask",findTask);
   if (!findTask) {
     return res.json({
       status: "failure",
@@ -176,7 +216,7 @@ const updateTask = async (req, res) => {
     });
   }
 
-  res.json({
+   return res.json({
     status: "success",
 
     message: "Updated successfully",
@@ -188,9 +228,9 @@ const updateTask = async (req, res) => {
 //---------------------------delete task-------------------------
 
 const deleteTask = async (req, res) => {
-  const id = req.params.id;
+  const taskId = req.params.id;
 
-  const findTask = await todo.findByIdAndDelete(id);
+  const findTask = await todo.findByIdAndDelete(taskId);
   if (!findTask) {
     return res.json({
       status: "failure",
